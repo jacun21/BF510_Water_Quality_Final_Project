@@ -21,6 +21,7 @@ Additionally, a focused analysis of water monitoring sites located directly insi
 ## Contents
 
 code/: Scripts for water quality data pre-processing, exploratory analyses, statistical modeling, and geospatial data processing.
+
 results/: Example maps, model summaries, and visualizations of findings.
 
 ## Data Sources
