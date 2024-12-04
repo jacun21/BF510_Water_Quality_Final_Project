@@ -1,0 +1,316 @@
+---
+title: "Water Quality Data Pre-Processing"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r, echo=FALSE }
+library(tidyverse)
+library(ggplot2)
+library(readxl)
+library(EnvStats)
+```
+
+
+### Set Working Directory
+```{r, echo=FALSE }
+
+working_dir <- "C:/BF510/final_project/"
+
+```
+
+
+
+## Load water station location and Water quality discrete probe data
+
+
+```{r}
+water_station_data <- read.csv(paste0(working_dir, "data/" ,"DWMWPP_water_quality_stations_table.csv"))
+
+discrete_probe_data <- read_excel(paste0(working_dir, "data/" ,"wqdiscreteprobedata-8-23-2022.xlsx"))
+```
+
+## Data cleaning steps
+
+### Modify absent data points to all be NAs
+```{r}
+discrete_probe_data$TDS <- gsub("--|\\^\\^|\\*\\*|##", NA, discrete_probe_data$TDS)
+discrete_probe_data$SPCOND<- gsub("--|\\^\\^|\\*\\*|##", NA, discrete_probe_data$SPCOND)
+discrete_probe_data$DO<- gsub("--|\\^\\^|\\*\\*|##", NA, discrete_probe_data$DO)
+discrete_probe_data$DOSAT<- gsub("--|\\^\\^|\\*\\*|##", NA, discrete_probe_data$DOSAT)
+discrete_probe_data$TEMP<- gsub("--|\\^\\^|\\*\\*|##", NA, discrete_probe_data$TEMP)
+discrete_probe_data$PH<- gsub("--|\\^\\^|\\*\\*|##|ii", NA, discrete_probe_data$PH)
+
+```
+
+
+## Merge water station and discrete probe dataframes, see which sites have the measures of interest
+```{r}
+#merged_dfs <- merge(water_station_data, discrete_probe_data, by.x = "STADESCRIP", by.y = "DESCRIPTOR")
+
+filtered_discrete_probe_data <-  subset(discrete_probe_data, DESCRIPTOR %in% water_station_data$STADESCRIP & !is.na(discrete_probe_data$nDEPTH) & !is.na(discrete_probe_data$SPCOND) 
+                                        & !is.na(discrete_probe_data$TEMP) & !is.na(discrete_probe_data$TDS) & !is.na(discrete_probe_data$DOSAT) & !is.na(discrete_probe_data$DO) & !is.na(discrete_probe_data$PH)) 
+    
+
+```
+
+## Merge discrete probe data with site information dataframe to include only the geographic coordinates
+
+```{r}
+water_station_filtered_data <- select(water_station_data, c("UNIQUEID", "STADESCRIP", "LATITUDE", "LONGITUDE"))
+
+merged_dfs <- left_join(filtered_discrete_probe_data, water_station_filtered_data, by = c("UNIQUE_ID" = "UNIQUEID")) 
+
+```
+
+
+## Create Histograms to View the Data Distributions
+
+Function to create histograms
+```{r}
+
+#' Function to create histograms using ggplot2 
+#' 
+#' @param data The input data frame for the plot
+#' @param variable The variable to plot in the histogram
+#' @param plot_title The plot title
+#' @param bins The number of bins for the histogram (default = 30)
+
+make_histogram <- function(data, variable, plot_title, bins = 30) {
+  gg <- ggplot(data, aes(x=.data[[variable]])) + 
+  geom_histogram(color="black", fill="blue", bins=30) +
+  theme_minimal() +
+  labs(title = plot_title)
+
+  return(gg)
+}
+
+```
+
+Define variables and plot titles 
+```{r}
+
+water_vars <- c("nSPCOND", "nTEMP", "nTDS", "nDO", "nDOSAT", "nPH")
+titles <- c(
+  "Distribution of Specific Conductance Values (µS/cm)",
+  "Distribution of Temperature Values (°C)",
+  "Distribution of Total Dissolved Solids Values (mg/l)",
+  "Distribution of Dissolved Oxygen Values (mg/l)",
+  "Distribution of Dissolved Oxygen Saturation (%)",
+  "Distribution of pH Values"
+)
+```
+
+
+Run function to generate histograms
+```{r}
+#Create list to store plots
+histograms <- list()
+
+#Loop through variables and generate plots
+for (i in seq_along(water_vars)) {
+  plot_name <- paste0(water_vars[i], "_histogram")  #plot name
+  histograms[[plot_name]] <- make_histogram(merged_dfs, water_vars[i], titles[i], bins = 30)
+}
+```
+
+Save Histograms as pngs and as a single pdf
+```{r}
+#Save as pngs
+variables <- names(histograms)
+for (i in variables) {
+  ggsave(filename = paste0(working_dir, "results/exploratory_plots/", i, ".png"), 
+         plot = histograms[[i]], width = 12, height = 16, dpi = 300,
+         bg="white")
+}
+
+#Save as pdf
+
+hist_outdir <- paste0(working_dir, "results/exploratory_plots/water_quality_histograms.pdf")
+
+pdf(hist_outdir, width = 8, height = 6)
+for (plot_name in names(histograms)) {
+  print(histograms[[plot_name]])  # Print each histogram to the PDF
+}
+dev.off()
+```
+
+### Create QQPlots to View the Data Residuals
+
+Function to create QQ plots
+```{r}
+make_qqplot <- function(data, variable, plot_title) {
+  gg2 <- ggplot(data, aes(sample = .data[[variable]])) +
+    stat_qq(distribution = qnorm) +
+    stat_qq_line(distribution = qnorm, color = "red") +
+    theme_minimal() +
+    labs(title = paste("Q-Q Plot of", plot_title),
+         x = "Theoretical Quantiles",
+         y = "Sample Quantiles")
+  
+  return(gg2)
+}
+```
+
+Define variables and plot titles 
+```{r}
+qq_titles <- c(
+  "Q-Q Plot of Specific Conductance Values (µS/cm)",
+  "Q-Q Plot of Temperature Values (°C)",
+  "Q-Q Plot of Total Dissolved Solids Values (mg/l)",
+  "Q-Q Plot of Dissolved Oxygen Values (mg/l)",
+  "Q-Q Plot of Dissolved Oxygen Saturation (%)",
+  "Q-Q Plot of pH Values"
+)
+```
+
+Run function to generate qq plots
+```{r}
+#Create list to store plots
+qqplots <- list()
+
+#Loop through variables and generate plots
+for (i in seq_along(water_vars)) {
+  plot_name <- paste0(water_vars[i], "_qqplot")  # Create a unique name for each plot
+  qqplots[[plot_name]] <- make_qqplot(merged_dfs, water_vars[i], qq_titles[i])
+}
+
+```
+
+Save QQ Plots as pngs and as a single pdf
+```{r}
+#Save as pngs
+variables <- names(qqplots)
+for (i in variables) {
+  ggsave(filename = paste0(working_dir, "results/exploratory_plots/", i, ".png"), 
+         plot = qqplots[[i]], width = 12, height = 16, dpi = 300,
+         bg="white")
+}
+
+#Save as histograms
+qq_outdir <- paste0(working_dir, "results/exploratory_plots/water_quality_qqplots.pdf")
+
+pdf(qq_outdir, width = 8, height = 6)
+for (plot_name in names(qqplots)) {
+  print(qqplots[[plot_name]])  # Print each histogram to the PDF
+}
+dev.off()
+
+```
+
+
+After viewing the histograms and Q-Q plots of each water quality data type, there are outliers present in the data sets and none of the variables appear normally-distributed. 
+
+## Outlier Analysis
+
+Visualize distributions of water quality measures to identify potential outliers. Then, apply Rosner's Test to detect outliers. I chose 6 as the number of expected outliers based on previous plots (k=6).
+
+Additionally, I will remove all zero values for DO and DOSAT, as neither should be below 0. 
+
+The 'n' prefix for all water quality variables indicates numeric type. 
+
+### SPCOND
+
+Outlier Analysis using Rosner's Test
+```{r , echo=TRUE}
+spcond_outlier_test <- rosnerTest(merged_dfs$nSPCOND, k = 6)
+spcond_outlier_test$all.stats
+```
+Three outliers identified (41241, 28080, 17550)
+
+Remove outliers
+```{r , echo=TRUE}
+spcond_outliers_true <- subset(spcond_outlier_test$all.stats, Outlier == TRUE)
+merged_df_2 <- subset(merged_dfs, !(nSPCOND %in% spcond_outliers_true$Value))
+```
+
+### Temperature (°C)
+
+Outlier Analysis using Rosner's Test
+```{r , echo=TRUE}
+temp_outliers_test <- rosnerTest(merged_dfs$nTEMP, k = 6)
+temp_outliers_test$all.stats
+```
+No outliers identified.
+
+### Total Dissolved Solids Calculated from Specific Conductance (mg/l)
+
+Outlier Analysis using Rosner's Test
+```{r , echo=TRUE}
+tds_outliers_test <- rosnerTest(merged_dfs$nTDS, k = 6)
+tds_outliers_test$all.stats
+```
+Three outliers identified (26810, 18250, 11410)
+
+Remove outliers
+```{r , echo=TRUE}
+
+tds_outliers_true <- subset(tds_outliers_test$all.stats, Outlier == TRUE)
+merged_df_3 <- subset(merged_df_2, !(nTDS %in% tds_outliers_true$Value))
+```
+
+### Dissolved Oxygen (mg/l)
+
+Outlier Analysis using Rosner's Test
+```{r , echo=TRUE}
+do_outlier_test <- rosnerTest(merged_dfs$nDO, k = 6)
+do_outlier_test$all.stats
+```
+
+No outliers identified. 
+
+### Dissolved Oxygen Saturation (%)
+
+Outlier Analysis using Rosner's Test
+```{r , echo=TRUE}
+dosat_outliers_test <- rosnerTest(merged_dfs$nDOSAT, k = 6)
+dosat_outliers_test$all.stats
+```
+
+No outliers identified. 
+
+### PH
+
+Outlier Analysis using Rosner's Test
+```{r}
+ph_outliers_test <- rosnerTest(merged_dfs$nPH, k = 6)
+ph_outliers_test$all.stats
+
+```
+
+One outlier identified (9.9).
+
+Remove outliers
+```{r , echo=TRUE}
+ph_outliers_true <- subset(ph_outliers_test$all.stats, Outlier == TRUE)
+merged_df_4 <- subset(merged_df_3, !(nPH %in% ph_outliers_true$Value))
+```
+
+## Apply Additional Filters to Remove Values Less than Zero From DO and DOSAT, Remove Data points with Depth Equal to Zero
+
+Values less than zero for DO/DOSAT indicate data quality/measurement issues. Removed water depth values == 0 since it is used as a covariate in the models later on (also doesn't make sense).  
+
+```{r}
+merged_df_5 <- subset(merged_df_4, !(nDOSAT < 0 | nDO < 0)) %>% subset(., !(nDEPTH == 0))
+```
+
+
+## Save filtered data to a .csv file
+```{r}
+water_station_filtered_data <- select(water_station_data, c("UNIQUEID", "STADESCRIP", "LATITUDE", "LONGITUDE"))
+
+merged_dfs <- left_join(filtered_discrete_probe_data, water_station_filtered_data, by = c("UNIQUE_ID" = "UNIQUEID"))
+
+write.csv(merged_df_5, paste0(working_dir, "/data/", "/filtered_water_sites.csv"), row.names = FALSE)
+
+```
+
+
+# At this point, we have selected water monitoring sites and times across the state that have complete water quality data (i.e no missing values for any of the relevant water quality measures). 
+
+After this, further processing was done in ArcGIS Pro 3.3 to classify data points into "proximity zones" in relation to EJ neighborhood blocks. 
+There were 3 main categories for this: 1. "Inside" an EJ zone was within the demarcated EJ neighborhood block, 2. Within 1 mile of the EJ zone, 3. Within 3 miles of the EJ zone, and 4. Beyond 3 miles of the EJ zones. I based these off a Duke University thesis project ("Conservation and Restoration Prioritization for the Cape Fear River Basin: Social and Environmental Justice Considerations", Sun, 2024). 

@@ -1,0 +1,419 @@
+---
+title: "Water Quality Exploratory Data Analysis"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo=FALSE }
+library(tidyverse)
+library(readxl)
+library(ggplot2)
+library(ggridges)
+library(corrplot)
+library(car)
+library(psych)
+library(writexl)
+```
+
+### Set Working Directory
+```{r, echo=FALSE }
+
+working_dir <- "C:/BF510/final_project/"
+
+```
+
+## Read in Water Quality Dataset
+
+At this point, the selected water quality dataset has been filtered to only include sampling dates with complete specific conductivity, temperature, total dissolved solids, DO, and TDS data with outliers removed.
+
+filtered_water_sites.csv generated from raw water quality data in water_data_preprocessing.rmd
+
+```{r , echo=FALSE}
+water_quality_data <- read.csv(paste0(working_dir, "/data/" ,"filtered_water_sites.csv"))
+
+#Convert DOSAT and DO columns to numeric
+
+water_quality_data$DOSAT <- as.numeric(water_quality_data$DOSAT)
+water_quality_data$DO <- as.numeric(water_quality_data$DO)
+
+head(water_quality_data)
+```
+
+## Create Exploratory Plots of the Water Quality Dataset
+
+### Specific Conductance
+
+
+View SPCOND data by year, clustered by watershed (boxplot)
+```{r , echo=FALSE}
+
+spcond_1 <- ggplot(water_quality_data, aes(x=Datayear, y=SPCOND, group = Datayear)) +
+    geom_boxplot()+
+    facet_wrap(~Watershed)+
+    scale_x_continuous(breaks=c(2005,2010,2015,2020),labels=c("2005","2010","2015","2020"))+
+    labs(x="Year", y=" Specific Conductance (µS/cm)", , title = "Specific Conductance by Year and Watershed -- Boxplots") +
+    theme_minimal()
+spcond_1
+```
+
+View SPCOND data by watershed (density plots)
+
+```{r , echo=FALSE}
+
+spcond_2 <- ggplot(water_quality_data, aes(x=SPCOND, y=Watershed)) +
+    geom_density_ridges(rel_min_height = 0.01)+
+    facet_wrap(~Datayear)+
+    labs(x="Specific Conductance (µS/cm)", y="Watershed", title = "Specific Conductance by Watershed -- Density Plots") +
+    theme_minimal()
+spcond_2
+```
+
+
+### Temperature
+
+
+View TEMP data by year, clustered by watershed (boxplot)
+
+```{r , echo=FALSE}
+
+temp_1 <- ggplot(water_quality_data, aes(x=Datayear, y=TEMP, group = Datayear)) +
+    geom_boxplot()+
+    facet_wrap(~Watershed)+
+    scale_x_continuous(breaks=c(2005,2010,2015,2020),labels=c("2005","2010","2015","2020"))+
+    labs(x="Year", y="Temperature (°C)", title="Temperature by Year and Watershed -- Boxplots") +
+    theme_minimal()
+temp_1
+```
+
+View TEMP data by watershed (density plots)
+
+```{r , echo=FALSE}
+
+temp_2 <- ggplot(water_quality_data, aes(x=TEMP, y=Watershed)) +
+    geom_density_ridges(rel_min_height = 0.01)+
+    facet_wrap(~Datayear)+
+    labs(x="Temperature (°C)", y="Watershed", title = "Temperature by Watershed -- Density Plots") +
+    theme_minimal()
+temp_2
+```
+
+
+### Total Dissolved solids
+
+Total dissolved solids (TDS), calculated from specific conductivity (mg/l)
+
+View TDS data by year, clustered by watershed (boxplot)
+
+```{r , echo=FALSE}
+
+tds_1 <- ggplot(water_quality_data, aes(x=Datayear, y=TDS, group = Datayear)) +
+    geom_boxplot()+
+    facet_wrap(~Watershed)+
+    scale_x_continuous(breaks=c(2005,2010,2015,2020),labels=c("2005","2010","2015","2020"))+
+    labs(x="Year", y="TDS (mg/l)", title="Total Dissolved Solids by Year and Watershed -- Boxplots") +
+    theme_minimal()
+tds_1
+```
+
+View TDS data by watershed (density plots)
+
+```{r , echo=FALSE}
+
+tds_2 <- ggplot(water_quality_data, aes(x=TDS, y=Watershed)) +
+    geom_density_ridges(rel_min_height = 0.01)+
+    facet_wrap(~Datayear)+
+    labs(x="TDS (mg/l)", y="Watershed", title = "Total Dissolved Solids by Watershed -- Density Plots") +
+    theme_minimal()
+tds_2
+```
+
+
+### Dissolved Oxygen
+
+View DO data by year, clustered by watershed (boxplot)
+
+```{r , echo=FALSE}
+
+do_1 <- ggplot(water_quality_data, aes(x=Datayear, y=DO, group = Datayear)) +
+    geom_boxplot()+
+    facet_wrap(~Watershed)+
+    scale_x_continuous(breaks=c(2005,2010,2015,2020),labels=c("2005","2010","2015","2020"))+
+    labs(x="Year", y="Dissolved Oxygen (mg/l)", title="Dissolved Oxygen by Year and Watershed -- Boxplots") +
+    theme_minimal()
+
+do_1
+```
+
+View DO data by watershed (density plots)
+
+```{r , echo=FALSE}
+
+do_2 <- ggplot(water_quality_data, aes(x=DO, y=Watershed)) +
+    geom_density_ridges(rel_min_height = 0.01)+
+    facet_wrap(~Datayear)+
+    labs(x="Dissolved Oxygen (mg/l)", y="Watershed", title = "Dissolved Oxygen by Watershed -- Density Plots") +
+    theme_minimal()
+do_2
+```
+
+
+### Dissolved Oxygen Saturation
+
+View DOSAT data by year, clustered by watershed (boxplot)
+
+```{r , echo=FALSE}
+
+dosat_1 <- ggplot(water_quality_data, aes(x=Datayear, y=DOSAT, group = Datayear)) +
+    geom_boxplot()+
+    facet_wrap(~Watershed)+
+    scale_x_continuous(breaks=c(2005,2010,2015,2020),labels=c("2005","2010","2015","2020"))+
+    labs(x="Year", y="Dissolved Oxygen Saturation (%)", title="Dissolved Oxygen Saturation by Year and Watershed -- Boxplots") +
+    scale_y_continuous(limits=c(0,200),breaks=seq(0,200,25)) +
+    theme_minimal()
+
+dosat_1
+```
+
+View DOSAT data by watershed (density plots)
+
+```{r , echo=FALSE}
+
+dosat_2 <- ggplot(water_quality_data, aes(x=DOSAT, y=Watershed)) +
+geom_density_ridges(rel_min_height = 0.01)+
+facet_wrap(~Datayear)+
+labs(x="Dissolved Oxygen Saturation (%)", y="Watershed", title = "Dissolved Oxygen Saturation by Watershed -- Density Plots") +
+theme_minimal()
+
+dosat_2
+```
+
+
+### pH
+
+
+View PH data by year, clustered by watershed (boxplot)
+
+```{r , echo=FALSE}
+
+ph_1 <- ggplot(water_quality_data, aes(x=Datayear, y=PH, group = Datayear)) +
+    geom_boxplot()+
+    facet_wrap(~Watershed)+
+    scale_x_continuous(breaks=c(2005,2010,2015,2020),labels=c("2005","2010","2015","2020"))+
+    labs(x="Year", y="pH", title="pH by Year and Watershed -- Boxplots") +
+    scale_y_continuous(limits=c(0,200),breaks=seq(0,200,25)) +
+    theme_minimal()
+
+ph_1
+```
+
+View PH data by watershed (density plots)
+
+```{r , echo=FALSE}
+
+ph_2 <- ggplot(water_quality_data, aes(x=PH, y=Watershed)) +
+geom_density_ridges(rel_min_height = 0.01)+
+facet_wrap(~Datayear)+
+labs(x="pH", y="Watershed", title = "pH by Watershed -- Density Plots") +
+theme_minimal()
+
+ph_2
+```
+
+#### Save plots as png files 
+
+```{r , echo=FALSE}
+plots <- list("spcond_1"=spcond_1,"spcond_2"=spcond_2,"do_1"=do_1,"do_2"=do_2,"dosat_1"=dosat_1,"dosat_2"=dosat_2,"temp_1"=temp_1,"temp_2"=temp_2,"ph_1"=ph_1,"ph_2"=ph_2)
+variables <- names(plots)
+
+for (i in variables) {
+  ggsave(filename = paste0(working_dir, "results/exploratory_plots/", i, ".png"), 
+         plot = plots[[i]], width = 12, height = 16, dpi = 300,
+         bg="white")
+}
+
+```
+
+## Multicolinearity Analysis
+
+Use to see whether any water quality variables are significantly highly correlated
+
+### Create Subsetted Data Frame with Variables of Interest only
+
+```{r}
+
+water_vars_subset_df <- water_quality_data %>% 
+     select("nSPCOND", "nTDS", "nPH", "nTEMP", "nDO", "nDOSAT", "nDEPTH", "Datayear")
+
+```
+
+### Create Pearson Correlation Matrix and Plot Result
+```{r}
+cor_matrix <- cor(water_vars_subset_df)
+
+corrplot(cor_matrix, method = "circle")
+```
+- DO and DOSAT are highly multicolinear, which is expected since one is calculated from the other.
+- TDS and SPCOND are highly multicolinear, which is expected since one is calculated from the other.
+
+### Calculate Variance Inflation Factors
+```{r}
+lm_model <-lm(nTEMP ~ Datayear + nDEPTH + nSPCOND + nTDS + nPH + nDO + nDOSAT, data = water_vars_subset_df)
+
+vif_values <- vif(lm_model)
+
+print(vif_values)
+```
+
+There are very high VIFs for SPCOND, TDS, DO, and DOSAT. This is expected since TDS is calculated from SPCOND, and DOSAT is based on DO. I will remove DOSAT and TDS and re-calculate the VIFs. 
+
+
+```{r}
+lm_model2 <-lm(nTEMP ~ Datayear + nDEPTH + nSPCOND + nPH + nDO , data = water_vars_subset_df)
+
+vif_values2 <- vif(lm_model2)
+
+print(vif_values2)
+```
+
+The VIFs are ~ 1 for all remaining variables, suggesting little to no multicolinearity. I will retain these in the statistical models.
+
+## Summary Statistics for Selected Water Quality and EJ Metrics
+
+### Create Table with Summary Statistics Water Quality Metrics included in EJ Zone Proximity Analysis
+
+Included statistics for log10-transformed depth and SPCOND since they are used in the GLMMs.
+
+```{r}
+
+# Create log10-transformed depth and SPCOND columns
+water_vars_subset_df$logDEPTH <- log10(water_vars_subset_df$nDEPTH)
+water_vars_subset_df$logSPCOND <- log10(water_vars_subset_df$nSPCOND)
+
+# Remove DOSAT and TDS
+
+water_vars_subset_df_2 <- select(water_vars_subset_df, -c("nTDS", "nDOSAT"))
+
+water_qual_summary_table <- water_vars_subset_df_2 %>% 
+    select(-c("Datayear")) %>%
+    describe(.) %>%
+    select(-c("vars")) %>%
+    mutate(across(where(is.numeric), ~round(., 3)))
+
+# Remove the "n" from row names
+rownames(water_qual_summary_table) <- gsub("^n", "", rownames(water_qual_summary_table))
+
+
+# Create new column to store row names, add to beginning of data frame
+
+water_qual_summary_table <- water_qual_summary_table %>%
+  mutate(variables = rownames(water_qual_summary_table)) %>%
+  select(variables, everything())
+
+# Write table to csv file
+write_xlsx(water_qual_summary_table, paste0(working_dir, "results/summary_statistics/EJ_zone_proximity_variables_summary_stats.xlsx"))
+
+```
+
+### Read in Data Frame with Water Quality and EJ Demographics data combined
+
+Data set generated using filtered water quality data set from above, MassDEP EJ geospatial and demographics data set, and ArcGISPro Model.  
+```{r}
+ej_water_qual_data <- read.csv(paste0(working_dir, "/data/" ,"water_quality_EJ_data_merged.csv"))
+```
+
+### Generate Summary Table for just EJ demographics data
+
+Includes selected EJ variables used in analyses.
+```{r}
+
+# Variables to select
+ej_zone_variables <- c("BG_MHHI", "LIMENGHHPCT", "PCT_MINORITY", "TOTAL_POP")
+
+# Select information from distinct EJ neighborhoods and only select columns with demographics information
+ej_demog_info <- ej_water_qual_data %>%
+                        distinct(GEOGRAPHICAREANAME, .keep_all = TRUE) %>%
+                        select(., ej_zone_variables)
+
+
+
+ej_demog_summary_table <- ej_demog_info %>% 
+    describe(.) %>%
+    select(-c("vars")) %>%
+    mutate(across(where(is.numeric), ~round(., 3))) 
+
+# Round median household income row to 2 decimals
+
+ej_demog_summary_table["BG_MHHI", ] <- round(ej_demog_summary_table["BG_MHHI", ], 2)
+
+
+# Create new column to store row names, add to beginning of data frame
+
+ej_demog_summary_table <- ej_demog_summary_table %>%
+  mutate(variables = rownames(ej_demog_summary_table)) %>%
+  select(variables, everything())
+
+# Write table to csv file
+
+write_xlsx(ej_demog_summary_table, paste0(working_dir, "results/summary_statistics/Within_EJ_demographics_variables_summary_stats.xlsx"))
+
+
+```
+
+
+### Generate Summary Table for Water Quality Metrics used in Within EJ analysis
+
+Includes selected EJ variables used in analyses.
+```{r}
+
+# Create log10-transformed depth and SPCOND columns
+ej_water_qual_data$logDEPTH <- log10(ej_water_qual_data$nDEPTH)
+ej_water_qual_data$logSPCOND <- log10(ej_water_qual_data$nSPCOND)
+
+# List of variables to summarize and subset data frame to only include those
+
+ej_zone_variables2 <- c("logSPCOND","nSPCOND","nPH","nTEMP", "nDO", "nDEPTH", "logDEPTH")
+
+
+ej_water_qual_data_2 <- ej_water_qual_data %>% select(.,ej_zone_variables2)
+                        
+ej_water_qual_summary_table <- ej_water_qual_data_2 %>% 
+    describe(.) %>%
+    select(-c("vars")) %>%
+    mutate(across(where(is.numeric), ~round(., 3))) 
+
+
+# Remove the "n" from row names
+rownames(ej_water_qual_summary_table) <- gsub("^n", "", rownames(ej_water_qual_summary_table))
+
+# Create new column to store row names, add to beginning of data frame
+
+ej_water_qual_summary_table <- ej_water_qual_summary_table %>%
+  mutate(variables = rownames(ej_water_qual_summary_table)) %>%
+  select(variables, everything())
+
+# Write table to csv file
+
+write_xlsx(ej_water_qual_summary_table, paste0(working_dir, "results/summary_statistics/Within_EJ_water_quality_variables_summary_stats.xlsx"))
+
+
+```
+
+
+### Calculate Number of Unique Water Monitoring Sites in Each Zone Across MA
+
+Data set generated with ArcGISPro geospatial data processing pipeline. 
+```{r}
+## Read in Data set with Zone labels 
+
+water_qual_zone_buffers <- read.csv(paste0(working_dir, "/data/", "water_quality_zone_labels2.csv"))
+
+sites_by_zone_count <- water_qual_zone_buffers %>%
+    group_by(.,Zone_Label) %>%
+    summarize(Site_Count = n_distinct(UNIQUE_ID)) %>%
+    as.data.frame()
+
+```
+
